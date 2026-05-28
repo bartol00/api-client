@@ -17,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
@@ -139,6 +140,8 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
+    // TODO add PATCH request logic
+
     public <T> ApiResponse<T> sendPutRequest(
             Object dto,
             String path,
@@ -203,13 +206,7 @@ public class ApiClient {
             Map<String, String> queryParams,
             Map<String, String> headers
     ) {
-        String query = "";
-        if (queryParams != null && !queryParams.isEmpty()) {
-            query = queryParams.entrySet().stream()
-                    .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "=" +
-                            URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
-                    .collect(Collectors.joining("&", "?", ""));
-        }
+        String query = buildQueryString(queryParams);
 
         String fullPath = baseUrl.endsWith("/")
                 ? baseUrl.substring(0, baseUrl.length() - 1)
@@ -226,6 +223,21 @@ public class ApiClient {
         }
 
         return builder;
+    }
+
+    private String buildQueryString(Map<String, String> queryParams) {
+        if (queryParams == null || queryParams.isEmpty()) {
+            return "";
+        }
+
+        return queryParams.entrySet().stream()
+                .filter(e -> e.getKey() != null && e.getValue() != null)
+                .map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
+                .collect(Collectors.joining("&", "?", ""));
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private HttpRequest.Builder baseRequest(
@@ -321,7 +333,7 @@ public class ApiClient {
 
                 // Retry on server errors (5xx), otherwise throw
                 if (statusCode >= 500 && attempt < maxRetries && idempotent) {
-                    long jitter = (long)(Math.random() * 200);
+                    long jitter = ThreadLocalRandom.current().nextLong(200);
                     Thread.sleep(retryCooldownMillis + jitter);
                     retryCooldownMillis = Math.min(retryCooldownMillis * 2, 30000);  // exponential backoff
                     continue;
@@ -336,7 +348,7 @@ public class ApiClient {
 
                 // Retry on IO failures, up to maxRetries
                 if (attempt < maxRetries && idempotent) {
-                    long jitter = (long)(Math.random() * 200);
+                    long jitter = ThreadLocalRandom.current().nextLong(200);
                     try {
                         Thread.sleep(retryCooldownMillis + jitter);
                     } catch (InterruptedException ex) {
