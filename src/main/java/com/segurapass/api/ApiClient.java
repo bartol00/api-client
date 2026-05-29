@@ -47,6 +47,7 @@ public class ApiClient {
                 .findAndRegisterModules();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectionTimeout))
+                .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
         this.baseUrl = baseUrl;
         this.requestTimeout = requestTimeout;
