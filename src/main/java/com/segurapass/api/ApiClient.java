@@ -5,7 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.segurapass.exception.SdkException;
+import com.segurapass.exception.ApiException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -17,11 +17,14 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("unused")
 public class ApiClient {
-    private final HttpClient httpClient;
+
     private final ObjectMapper mapper;
+    private final HttpClient httpClient;
     private final String baseUrl;
     private final int requestTimeout;
     private final int maxRetries;
@@ -31,29 +34,45 @@ public class ApiClient {
         this(baseUrl, 10, 30, 3, 1000);
     }
 
-    public ApiClient(String baseUrl,
-                     int connectionTimeout,
-                     int requestTimeout,
-                     int maxRetries,
-                     long retryCooldownMillis) {
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(connectionTimeout))
-                .build();
+    public ApiClient(
+            String baseUrl,
+            int connectionTimeout,
+            int requestTimeout,
+            int maxRetries,
+            long retryCooldownMillis
+    ) {
         this.mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .findAndRegisterModules();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(connectionTimeout))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
         this.baseUrl = baseUrl;
         this.requestTimeout = requestTimeout;
         this.maxRetries = maxRetries;
         this.retryCooldownMillis = retryCooldownMillis;
     }
 
+    public <T> ApiResponse<T> sendGetRequest(
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers,
+            Class<T> responseType
+    ) throws ApiException {
+        HttpRequest request = baseRequest(path, queryParams, headers)
+                .GET()
+                .build();
+        return send(request, path, "GET", responseType);
+    }
+
+    @Deprecated(forRemoval = true, since = "2.0.0")
     public <T> ApiResponse<T> sendGetRequest(String path,
                                Map<String, String> queryParams,
                                String jwt,
                                Map<String, String> extraHeaders,
-                               Class<T> responseType) throws SdkException {
+                               Class<T> responseType) throws ApiException {
         String httpMethod = "GET";
 
         HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
@@ -63,11 +82,24 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
+    public <T> ApiResponse<T> sendGetRequest(
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers,
+            TypeReference<T> responseType
+    ) throws ApiException {
+        HttpRequest request = baseRequest(path, queryParams, headers)
+                .GET()
+                .build();
+        return send(request, path, "GET", responseType);
+    }
+
+    @Deprecated(forRemoval = true, since = "2.0.0")
     public <T> ApiResponse<T> sendGetRequest(String path,
                                 Map<String, String> queryParams,
                                 String jwt,
                                 Map<String, String> extraHeaders,
-                                TypeReference<T> responseType) throws SdkException {
+                                TypeReference<T> responseType) throws ApiException {
         String httpMethod = "GET";
 
         HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
@@ -77,12 +109,28 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
+    public <T> ApiResponse<T> sendPostRequest(
+            Object dto,
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers,
+            Class<T> responseType
+    ) throws ApiException {
+        String httpMethod = "POST";
+        HttpRequest request = baseRequest(path, queryParams, headers)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(toJsonBody(dto, path, httpMethod)))
+                .build();
+        return send(request, path, httpMethod, responseType);
+    }
+
+    @Deprecated(forRemoval = true, since = "2.0.0")
     public <T> ApiResponse<T> sendPostRequest(Object dto,
                                 String path,
                                 Map<String, String> queryParams,
                                 String jwt,
                                 Map<String, String> extraHeaders,
-                                Class<T> responseType) throws SdkException {
+                                Class<T> responseType) throws ApiException {
         String httpMethod = "POST";
 
         HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
@@ -93,12 +141,30 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
+    // TODO add PATCH request logic
+
+    public <T> ApiResponse<T> sendPutRequest(
+            Object dto,
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers,
+            Class<T> responseType
+    ) throws ApiException {
+        String httpMethod = "PUT";
+        HttpRequest request = baseRequest(path, queryParams, headers)
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(toJsonBody(dto, path, httpMethod)))
+                .build();
+        return send(request, path, httpMethod, responseType);
+    }
+
+    @Deprecated(forRemoval = true, since = "2.0.0")
     public <T> ApiResponse<T> sendPutRequest(Object dto,
                                String path,
                                Map<String, String> queryParams,
                                String jwt,
                                Map<String, String> extraHeaders,
-                               Class<T> responseType) throws SdkException {
+                               Class<T> responseType) throws ApiException {
         String httpMethod = "PUT";
 
         HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
@@ -109,11 +175,24 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
+    public <T> ApiResponse<T> sendDeleteRequest(
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers,
+            Class<T> responseType
+    ) throws ApiException {
+        HttpRequest request = baseRequest(path, queryParams, headers)
+                .DELETE()
+                .build();
+        return send(request, path, "DELETE", responseType);
+    }
+
+    @Deprecated(forRemoval = true, since = "2.0.0")
     public <T> ApiResponse<T> sendDeleteRequest(String path,
                                   Map<String, String> queryParams,
                                   String jwt,
                                   Map<String, String> extraHeaders,
-                                  Class<T> responseType) throws SdkException {
+                                  Class<T> responseType) throws ApiException {
         String httpMethod = "DELETE";
 
         HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
@@ -123,10 +202,51 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
-    private HttpRequest.Builder baseRequest(String path,
-                                            Map<String, String> queryParams,
-                                            String jwt,
-                                            Map<String, String> extraHeaders) {
+    private HttpRequest.Builder baseRequest(
+            String path,
+            Map<String, String> queryParams,
+            Map<String, String> headers
+    ) {
+        String query = buildQueryString(queryParams);
+
+        String fullPath = baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1)
+                : baseUrl;
+
+        fullPath += path.startsWith("/") ? path : "/" + path;
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(fullPath + query))
+                .timeout(Duration.ofSeconds(requestTimeout));
+
+        if (headers != null) {
+            headers.forEach(builder::header);
+        }
+
+        return builder;
+    }
+
+    private String buildQueryString(Map<String, String> queryParams) {
+        if (queryParams == null || queryParams.isEmpty()) {
+            return "";
+        }
+
+        return queryParams.entrySet().stream()
+                .filter(e -> e.getKey() != null && e.getValue() != null)
+                .map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
+                .collect(Collectors.joining("&", "?", ""));
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private HttpRequest.Builder baseRequest(
+            String path,
+            Map<String, String> queryParams,
+            String jwt,
+            Map<String, String> extraHeaders
+    ) {
         String query = "";
         if (queryParams != null && !queryParams.isEmpty()) {
             query = queryParams.entrySet().stream()
@@ -161,7 +281,7 @@ public class ApiClient {
             return mapper.writeValueAsString(dto);
         } catch (JsonProcessingException e) {
             String message = "Failed to write JSON body";
-            throw new SdkException(0, httpMethod, message, path, e);
+            throw new ApiException(0, httpMethod, message, path, e);
         }
     }
 
@@ -173,7 +293,7 @@ public class ApiClient {
             return mapper.readValue(body, responseType);
         } catch (JsonProcessingException e) {
             String message = "Failed to parse JSON response";
-            throw new SdkException(0, httpMethod, message, path, e);
+            throw new ApiException(0, httpMethod, message, path, e);
         }
     }
 
@@ -185,11 +305,17 @@ public class ApiClient {
             return mapper.readValue(body, responseType);
         } catch (JsonProcessingException e) {
             String message = "Failed to parse JSON response";
-            throw new SdkException(0, httpMethod, message, path, e);
+            throw new ApiException(0, httpMethod, message, path, e);
         }
     }
 
-    private HttpResponse<String> executeWithRetry(HttpRequest request, String path, String httpMethod) throws SdkException {
+    @SuppressWarnings("BusyWait")
+    private HttpResponse<String> executeWithRetry(
+            HttpRequest request,
+            String path,
+            String httpMethod
+    ) throws ApiException {
+
         int attempt = 0;
         long retryCooldownMillis = this.retryCooldownMillis;
         boolean idempotent = httpMethod.equals("GET") || httpMethod.equals("DELETE");
@@ -208,13 +334,13 @@ public class ApiClient {
 
                 // Retry on server errors (5xx), otherwise throw
                 if (statusCode >= 500 && attempt < maxRetries && idempotent) {
-                    long jitter = (long)(Math.random() * 200);
+                    long jitter = ThreadLocalRandom.current().nextLong(200);
                     Thread.sleep(retryCooldownMillis + jitter);
                     retryCooldownMillis = Math.min(retryCooldownMillis * 2, 30000);  // exponential backoff
                     continue;
                 }
 
-                throw new SdkException(statusCode, httpMethod, body, path);
+                throw new ApiException(statusCode, httpMethod, body, path);
 
             } catch (IOException | InterruptedException e) {
                 if (e instanceof InterruptedException) {
@@ -223,14 +349,18 @@ public class ApiClient {
 
                 // Retry on IO failures, up to maxRetries
                 if (attempt < maxRetries && idempotent) {
-                    long jitter = (long)(Math.random() * 200);
-                    try { Thread.sleep(retryCooldownMillis + jitter); } catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
+                    long jitter = ThreadLocalRandom.current().nextLong(200);
+                    try {
+                        Thread.sleep(retryCooldownMillis + jitter);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
                     retryCooldownMillis = Math.min(retryCooldownMillis * 2, 30000);
                     continue;
                 }
 
                 String message = "HTTP request failed";
-                throw new SdkException(0, httpMethod, message, path, e);
+                throw new ApiException(0, httpMethod, message, path, e);
             }
         }
     }
@@ -241,7 +371,6 @@ public class ApiClient {
             String httpMethod,
             Class<T> responseType
     ) {
-
         HttpResponse<String> response = executeWithRetry(request, path, httpMethod);
 
         T body = parseResponse(response.body(), responseType, path, httpMethod);
@@ -257,7 +386,6 @@ public class ApiClient {
             String httpMethod,
             TypeReference<T> responseType
     ) {
-
         HttpResponse<String> response = executeWithRetry(request, path, httpMethod);
 
         T body = parseResponse(response.body(), responseType, path, httpMethod);
