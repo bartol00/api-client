@@ -67,21 +67,6 @@ public class ApiClient {
         return send(request, path, "GET", responseType);
     }
 
-    @Deprecated(forRemoval = true, since = "2.0.0")
-    public <T> ApiResponse<T> sendGetRequest(String path,
-                               Map<String, String> queryParams,
-                               String jwt,
-                               Map<String, String> extraHeaders,
-                               Class<T> responseType) throws ApiException {
-        String httpMethod = "GET";
-
-        HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
-                .GET()
-                .build();
-
-        return send(request, path, httpMethod, responseType);
-    }
-
     public <T> ApiResponse<T> sendGetRequest(
             String path,
             Map<String, String> queryParams,
@@ -92,21 +77,6 @@ public class ApiClient {
                 .GET()
                 .build();
         return send(request, path, "GET", responseType);
-    }
-
-    @Deprecated(forRemoval = true, since = "2.0.0")
-    public <T> ApiResponse<T> sendGetRequest(String path,
-                                Map<String, String> queryParams,
-                                String jwt,
-                                Map<String, String> extraHeaders,
-                                TypeReference<T> responseType) throws ApiException {
-        String httpMethod = "GET";
-
-        HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
-                .GET()
-                .build();
-
-        return send(request, path, httpMethod, responseType);
     }
 
     public <T> ApiResponse<T> sendPostRequest(
@@ -121,23 +91,6 @@ public class ApiClient {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(toJsonBody(dto, path, httpMethod)))
                 .build();
-        return send(request, path, httpMethod, responseType);
-    }
-
-    @Deprecated(forRemoval = true, since = "2.0.0")
-    public <T> ApiResponse<T> sendPostRequest(Object dto,
-                                String path,
-                                Map<String, String> queryParams,
-                                String jwt,
-                                Map<String, String> extraHeaders,
-                                Class<T> responseType) throws ApiException {
-        String httpMethod = "POST";
-
-        HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(toJsonBody(dto, path, httpMethod)))
-                .build();
-
         return send(request, path, httpMethod, responseType);
     }
 
@@ -158,23 +111,6 @@ public class ApiClient {
         return send(request, path, httpMethod, responseType);
     }
 
-    @Deprecated(forRemoval = true, since = "2.0.0")
-    public <T> ApiResponse<T> sendPutRequest(Object dto,
-                               String path,
-                               Map<String, String> queryParams,
-                               String jwt,
-                               Map<String, String> extraHeaders,
-                               Class<T> responseType) throws ApiException {
-        String httpMethod = "PUT";
-
-        HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
-                .header("Content-Type", "application/json")
-                .PUT(HttpRequest.BodyPublishers.ofString(toJsonBody(dto, path, httpMethod)))
-                .build();
-
-        return send(request, path, httpMethod, responseType);
-    }
-
     public <T> ApiResponse<T> sendDeleteRequest(
             String path,
             Map<String, String> queryParams,
@@ -185,21 +121,6 @@ public class ApiClient {
                 .DELETE()
                 .build();
         return send(request, path, "DELETE", responseType);
-    }
-
-    @Deprecated(forRemoval = true, since = "2.0.0")
-    public <T> ApiResponse<T> sendDeleteRequest(String path,
-                                  Map<String, String> queryParams,
-                                  String jwt,
-                                  Map<String, String> extraHeaders,
-                                  Class<T> responseType) throws ApiException {
-        String httpMethod = "DELETE";
-
-        HttpRequest request = baseRequest(path, queryParams, jwt, extraHeaders)
-                .DELETE()
-                .build();
-
-        return send(request, path, httpMethod, responseType);
     }
 
     private HttpRequest.Builder baseRequest(
@@ -239,41 +160,6 @@ public class ApiClient {
 
     private String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private HttpRequest.Builder baseRequest(
-            String path,
-            Map<String, String> queryParams,
-            String jwt,
-            Map<String, String> extraHeaders
-    ) {
-        String query = "";
-        if (queryParams != null && !queryParams.isEmpty()) {
-            query = queryParams.entrySet().stream()
-                    .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "=" +
-                            URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
-                    .collect(Collectors.joining("&", "?", ""));
-        }
-
-        String fullPath = baseUrl.endsWith("/")
-                ? baseUrl.substring(0, baseUrl.length() - 1)
-                : baseUrl;
-
-        fullPath += path.startsWith("/") ? path : "/" + path;
-
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(fullPath + query))
-                .timeout(Duration.ofSeconds(requestTimeout));
-
-        if (jwt != null && !jwt.isBlank()) {
-            builder.header("Authorization", "Bearer " + jwt);
-        }
-
-        if (extraHeaders != null) {
-            extraHeaders.forEach(builder::header);
-        }
-
-        return builder;
     }
 
     private String toJsonBody(Object dto, String path, String httpMethod) {
